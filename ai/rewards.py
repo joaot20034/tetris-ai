@@ -1,19 +1,19 @@
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from ai.config import RLConfig
 
 class RewardShaper:
-    """Calculates heuristic penalties and rewards for the RL agent."""
+    """Calculates delta-based heuristic penalties and rewards for the RL agent."""
     
     def __init__(self, config: RLConfig):
         self.config = config
+        
+        # THE SURVIVAL FIX: Force survival reward to 0.0 to prevent infinite stalling
+        self.config.reward_survival = 0.0
 
+    # --- YOUR OPTIMIZED NUMPY MATH ---
     def get_column_heights(self, grid: np.ndarray) -> np.ndarray:
-        """Returns an array of heights for each column."""
-        # Find the first non-zero element in each column
         is_filled = grid != 0
-        # argmax returns the first index of True. If a column is empty, it returns 0.
-        # We need to handle completely empty columns specifically.
         heights = np.zeros(grid.shape[1], dtype=np.int32)
         for col in range(grid.shape[1]):
             filled_indices = np.where(is_filled[:, col])[0]
@@ -22,48 +22,87 @@ class RewardShaper:
         return heights
 
     def get_bumpiness(self, heights: np.ndarray) -> int:
-        """Calculates the sum of absolute differences between adjacent columns."""
         return int(np.sum(np.abs(heights[:-1] - heights[1:])))
 
     def get_holes(self, grid: np.ndarray) -> int:
-        """
-        Counts empty cells that have at least one filled cell above them.
-        This is the most critical penalty for Tetris AI.
-        """
         is_filled = grid != 0
-        # A hole exists at (y, x) if grid[y, x] is empty AND there is a filled block somewhere in grid[0:y, x]
-        # We can calculate this by taking the cumulative sum down the columns.
-        # If the cumsum > 0 and the current cell is empty, it's a hole.
         filled_above = np.cumsum(is_filled, axis=0)
         holes = (filled_above > 0) & (~is_filled)
         return int(np.sum(holes))
 
-    def calculate_reward(self, 
-                         grid: np.ndarray, 
-                         step_metrics: Dict[str, Any]) -> float:
-        """Synthesizes the complete reward for a single step."""
-        if step_metrics.get("game_over", False):
-            return self.config.penalty_game_over
+    def get_board_metrics(self, grid: np.ndarray) -> dict:
+        """Helper to grab all metrics at once."""
+        heights = self.get_column_heights(grid)
+        return {
+            "holes": self.get_holes(grid),
+            "bumpiness": self.get_bumpiness(heights),
+            "height": int(np.max(heights))
+        }
 
-        reward = self.config.reward_survival
+    # --- THE DELTA REWARD LOGIC ---
+    def calculate_reward(self, 
+                         prev_grid: np.ndarray, 
+                         curr_grid: np.ndarray, 
+                         step_metrics: Dict[str, Any]) -> Tuple[float, dict]:
+        """Calculates the delta-based reward and returns a detailed breakdown dictionary."""
         
-        # 1. Line Clear Rewards
+        breakdown = {}
+        total_reward = 0.0
+        
+        game_over = step_metrics.get("game_over", False)
         lines = step_metrics.get("lines_cleared", 0)
+        locked = step_metrics.get("locked", False)
+
+        # 1. Terminal States
+        if game_over:
+            breakdown['Game Over'] = self.config.penalty_game_over
+            return self.config.penalty_game_over, breakdown
+        else:
+            breakdown['Survival'] = self.config.reward_survival
+            total_reward += self.config.reward_survival
+
+        # 2. Line Clear Rewards
         if lines > 0:
             base_line_reward = lines * self.config.reward_lines_cleared
             if lines == 4:
                 base_line_reward *= self.config.reward_tetris_multiplier
-            reward += base_line_reward
+            breakdown[f'{lines} Line Clear'] = base_line_reward
+            total_reward += base_line_reward
+        else:
+            breakdown['Line Clear'] = 0.0
 
-        # 2. Board Topology Penalties (Only calculated when a piece locks to save CPU)
-        if step_metrics.get("locked", False):
-            heights = self.get_column_heights(grid)
-            holes = self.get_holes(grid)
-            bumpiness = self.get_bumpiness(heights)
-            max_height = np.max(heights)
+        # 3. Delta Board Topology Penalties (Only checked when a piece locks)
+        if locked:
+            prev_metrics = self.get_board_metrics(prev_grid)
+            curr_metrics = self.get_board_metrics(curr_grid)
 
-            reward += (holes * self.config.penalty_hole)
-            reward += (bumpiness * self.config.penalty_bumpiness)
-            reward += (max_height * self.config.penalty_height)
+            # Only penalize if the state got WORSE
+            delta_holes = curr_metrics['holes'] - prev_metrics['holes']
+            if delta_holes > 0:
+                hole_reward = delta_holes * self.config.penalty_hole
+                breakdown['New Holes Created'] = hole_reward
+                total_reward += hole_reward
+            else:
+                breakdown['New Holes Created'] = 0.0
 
-        return reward
+            delta_bump = curr_metrics['bumpiness'] - prev_metrics['bumpiness']
+            if delta_bump > 0:
+                bump_reward = delta_bump * self.config.penalty_bumpiness
+                breakdown['Increased Bumpiness'] = bump_reward
+                total_reward += bump_reward
+            else:
+                breakdown['Increased Bumpiness'] = 0.0
+
+            delta_height = curr_metrics['height'] - prev_metrics['height']
+            if delta_height > 0:
+                height_reward = delta_height * self.config.penalty_height
+                breakdown['Increased Height'] = height_reward
+                total_reward += height_reward
+            else:
+                breakdown['Increased Height'] = 0.0
+        else:
+            breakdown['New Holes Created'] = 0.0
+            breakdown['Increased Bumpiness'] = 0.0
+            breakdown['Increased Height'] = 0.0
+
+        return total_reward, breakdown
