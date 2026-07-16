@@ -18,13 +18,13 @@ class RLConfig:
     # Exploration (Epsilon-Greedy)
     exploration_initial_eps: float = 1.0
     exploration_final_eps: float = 0.05
-    exploration_fraction: float = 0.2  # Fraction of training time to decay epsilon over
+    exploration_fraction: float = 0.4  # Fraction of training time to decay epsilon over
     
     # Reward Shaping Weights
-    reward_lines_cleared: float = 10.0
-    reward_tetris_multiplier: float = 2.0  # Bonus for clearing 4 lines at once
-    penalty_hole: float = -0.5
+    reward_lines_cleared: float = 5.0
+    reward_tetris_multiplier: float = 10.0  # Bonus for clearing 4 lines at once
+    penalty_hole: float = -2.0
     penalty_bumpiness: float = -0.2
-    penalty_height: float = -0.1
-    penalty_game_over: float = -50.0
+    penalty_height: float = -0.5
+    penalty_game_over: float = -300
     reward_survival: float = 0.01  # Small reward for staying alive

@@ -30,8 +30,9 @@ class TetrisFeatureExtractor(BaseFeaturesExtractor):
             n_flatten = self.cnn(dummy_board).shape[1]
 
         # 2. Scalar MLP (Metadata)
-        # current_piece (1) + next_pieces (5) + hold_piece (1) + can_hold (1) = 8 scalar inputs
-        n_scalars = 1 + 5 + 1 + 1
+        # SB3 pre-processes Discrete spaces using one-hot encoding:
+        # current_piece (8) + next_pieces (8 * 5 = 40) + hold_piece (8) + can_hold (2) = 58
+        n_scalars = 58
         self.mlp = nn.Sequential(
             nn.Linear(n_scalars, 64),
             nn.ReLU(),
@@ -50,12 +51,13 @@ class TetrisFeatureExtractor(BaseFeaturesExtractor):
         board = observations["board"].float().unsqueeze(1)
         board_features = self.cnn(board)
         
-        # Process Scalars: flatten next_pieces and concatenate everything
-        current = observations["current_piece"].float().unsqueeze(1)
-        next_p = observations["next_pieces"].float() # already shape (B, 5)
-        hold = observations["hold_piece"].float().unsqueeze(1)
-        can_hold = observations["can_hold"].float().unsqueeze(1)
+        # Process Scalars: Use torch.flatten to handle SB3's one-hot encoded dimensions safely
+        current = torch.flatten(observations["current_piece"].float(), start_dim=1)
+        next_p = torch.flatten(observations["next_pieces"].float(), start_dim=1)
+        hold = torch.flatten(observations["hold_piece"].float(), start_dim=1)
+        can_hold = torch.flatten(observations["can_hold"].float(), start_dim=1)
         
+        # Concatenate all flattened scalars (Batch, 58)
         scalars = torch.cat([current, next_p, hold, can_hold], dim=1)
         scalar_features = self.mlp(scalars)
         

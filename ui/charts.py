@@ -47,9 +47,10 @@ class RealTimePlotter:
         
         # Render to canvas and convert to Pygame Surface
         self.canvas.draw()
-        renderer = self.canvas.get_renderer()
-        raw_data = renderer.tostring_rgb()
+        
+        # Modern Matplotlib 3.8+ approach
+        raw_data = self.canvas.buffer_rgba()
         size = self.canvas.get_width_height()
         
-        self.surface = pygame.image.fromstring(raw_data, size, "RGB")
+        self.surface = pygame.image.frombuffer(raw_data, size, "RGBA")
         return self.surface
