@@ -8,10 +8,14 @@ from ai.agent import TetrisEnv
 def evaluate_model(model_path: str, num_episodes: int = 5):
     """Loads a trained model and plays Tetris visibly without exploration."""
     
+    # Explicitly start the Pygame engine to prevent video system errors
+    pygame.init()
+    
     # Check if the model exists (Stable-Baselines3 appends .zip automatically)
     if not os.path.exists(model_path + ".zip"):
         print(f"❌ Error: Could not find trained model at '{model_path}.zip'")
         print("Make sure your AI has saved a checkpoint or finished training!")
+        pygame.quit()
         return
 
     print(f"🧠 Loading trained brain from {model_path}...")
@@ -37,6 +41,7 @@ def evaluate_model(model_path: str, num_episodes: int = 5):
                 if event.type == pygame.QUIT:
                     print("🛑 Evaluation stopped by user.")
                     env.close()
+                    pygame.quit()
                     return
 
             # CRITICAL: deterministic=True forces the AI to use 100% of its learned 
@@ -59,6 +64,7 @@ def evaluate_model(model_path: str, num_episodes: int = 5):
 
     print("\n🎉 Evaluation complete.")
     env.close()
+    pygame.quit()
 
 if __name__ == "__main__":
     # We load the final model saved by train.py
