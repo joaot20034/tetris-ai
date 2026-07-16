@@ -1,0 +1,22 @@
+# Environments
+.venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs
+.vscode/
+.idea/
+
+# Project Specific (Do not track massive logs or model weights)
+logs/
+models/
+*.zip
+*.pth
+
+# OS generated files
+.DS_Store
