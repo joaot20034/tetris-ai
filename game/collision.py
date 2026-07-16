@@ -1,5 +1,6 @@
 from typing import List
 from game.pieces import Tetromino
+import numpy as np
 
 def check_collision(piece: Tetromino, board_grid: np.ndarray, offset_x: int = 0, offset_y: int = 0) -> bool:
     """
