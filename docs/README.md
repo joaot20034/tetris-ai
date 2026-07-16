@@ -2,10 +2,10 @@
 
 > A Reinforcement Learning framework where an AI agent learns to master modern Tetris from scratch using Deep Q-Networks (DQN).
 
-**Author:** [Author Placeholder]  
-**License:** [License Placeholder]  
-**Version:** [Version Placeholder]  
-**Last Updated:** [Last Updated Placeholder]  
+**Author:** [João Consciência Trindade]  
+**License:** [MIT License]  
+**Version:** [v1.0.0]  
+**Last Updated:** [July 16, 2026]  
 
 ---
 
